@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "keep-web-app",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-04-20",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "DEFAULTS_KV",
+      "id": "REPLACE_WITH_DEFAULTS_KV_NAMESPACE_ID",
+      "preview_id": "REPLACE_WITH_DEFAULTS_KV_PREVIEW_NAMESPACE_ID"
+    }
+  ]
+}

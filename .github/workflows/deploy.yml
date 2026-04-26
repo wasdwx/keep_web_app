@@ -1,0 +1,84 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: keep_web_app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: keep_web_app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Patch Wrangler CLI if needed
+        run: node scripts/patch-wrangler-cli.js
+
+      - name: Inject KV namespace ids
+        shell: bash
+        run: |
+          test -n "$DEFAULTS_KV_NAMESPACE_ID"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path("wrangler.jsonc")
+          text = path.read_text(encoding="utf-8")
+          kv_id = os.environ["DEFAULTS_KV_NAMESPACE_ID"]
+          preview_id = os.environ.get("DEFAULTS_KV_PREVIEW_NAMESPACE_ID") or kv_id
+          text = text.replace("REPLACE_WITH_DEFAULTS_KV_NAMESPACE_ID", kv_id)
+          text = text.replace("REPLACE_WITH_DEFAULTS_KV_PREVIEW_NAMESPACE_ID", preview_id)
+          path.write_text(text, encoding="utf-8")
+          PY
+        env:
+          DEFAULTS_KV_NAMESPACE_ID: ${{ secrets.DEFAULTS_KV_NAMESPACE_ID }}
+          DEFAULTS_KV_PREVIEW_NAMESPACE_ID: ${{ secrets.DEFAULTS_KV_PREVIEW_NAMESPACE_ID }}
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: keep_web_app
+          command: deploy
+
+      - name: Put Worker secrets
+        shell: bash
+        run: |
+          test -n "$ADMIN_PASSWORD"
+          for name in ADMIN_PASSWORD APP_PASSWORD QWEATHER_API_KEY QWEATHER_API_HOST QWEATHER_AUTH_TYPE; do
+            value="${!name}"
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | npx wrangler secret put "$name"
+            fi
+          done
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          QWEATHER_API_KEY: ${{ secrets.QWEATHER_API_KEY }}
+          QWEATHER_API_HOST: ${{ secrets.QWEATHER_API_HOST }}
+          QWEATHER_AUTH_TYPE: ${{ secrets.QWEATHER_AUTH_TYPE }}

@@ -1,0 +1,22 @@
+{
+  "name": "keep-web-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "postinstall": "node scripts/patch-wrangler-cli.js",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test ./tests/*.test.js",
+    "check": "npm run test && npm run build",
+    "precf:dev": "node scripts/patch-wrangler-cli.js",
+    "cf:dev": "npm run build && wrangler dev",
+    "predeploy": "node scripts/patch-wrangler-cli.js",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "vite": "^8.0.9",
+    "wrangler": "^4.0.0"
+  }
+}
