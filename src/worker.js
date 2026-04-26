@@ -404,15 +404,17 @@ async function handleAdminLogin(request, env) {
     return jsonResponse({ ok: false, error: 'invalid password' }, { status: 401 });
   }
 
-  const secureCookie = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
-  return jsonResponse(
-    { ok: true },
-    {
-      headers: {
-        'set-cookie': `${ADMIN_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax${secureCookie}; Max-Age=2592000`,
-      },
-    },
-  );
+  const headers = new Headers({
+    'content-type': 'application/json; charset=utf-8',
+  });
+  headers.append('set-cookie', `${ADMIN_COOKIE_NAME}=${token}; ${cookieOptions(request)}; Max-Age=2592000`);
+
+  const siteToken = await getSiteToken(env);
+  if (siteToken) {
+    headers.append('set-cookie', `${SITE_COOKIE_NAME}=${siteToken}; ${cookieOptions(request)}; Max-Age=2592000`);
+  }
+
+  return new Response(JSON.stringify({ ok: true }), { headers });
 }
 
 async function handleGetDefaultProject(env) {
@@ -501,9 +503,10 @@ async function handleApi(request, env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const isAuthApi = url.pathname === '/api/login' || url.pathname === '/api/logout';
+    const isSiteAuthApi = url.pathname === '/api/login' || url.pathname === '/api/logout';
+    const isAdminApi = url.pathname === '/api/admin/login' || url.pathname.startsWith('/api/admin/');
 
-    if (env.APP_PASSWORD && !isAuthApi && !(await isSiteRequest(request, env))) {
+    if (env.APP_PASSWORD && !isSiteAuthApi && !isAdminApi && !(await isSiteRequest(request, env))) {
       if (url.pathname.startsWith('/api/')) {
         return jsonResponse({ ok: false, error: 'site auth required' }, { status: 401 });
       }
