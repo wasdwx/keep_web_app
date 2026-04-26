@@ -637,10 +637,6 @@ async function restoreSiteDefaultRoute() {
 }
 
 async function loadSiteDefaultRouteForNewUser() {
-  if (hadSavedStateOnBoot) {
-    return;
-  }
-
   const state = store.getState();
   if (state.map.assetId || state.map.routeLayer?.enabled || state.map.routeProjectAssetId) {
     return;
